@@ -77,22 +77,17 @@ func (cfg *Config) listenAddr() string {
 	if cfg.Listen != "" {
 		return cfg.Listen
 	}
-	cfg.log.Debug("default admin address", zap.String("address", defaultAdminAddr))
 	return defaultAdminAddr
 }
 func (cfg *Config) GetAllowedHosts() []string {
     cfg.RLock()
     defer cfg.RUnlock()
-    // debug : print current allowed hosts
-    cfg.log.Debug("current allowed hosts", zap.Strings("allowed_hosts", cfg.AllowedHosts))
     return cfg.AllowedHosts
 }
 
 func (cfg *Config) GetAllowedOrigins() []string {
     cfg.RLock()
     defer cfg.RUnlock()
-    // debug : print current allowed origins
-    cfg.log.Debug("current allowed origins", zap.Strings("allowed_origins", cfg.AllowedOrigins))
     return cfg.AllowedOrigins
 }
 
