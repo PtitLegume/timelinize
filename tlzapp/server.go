@@ -78,9 +78,6 @@ type server struct {
 	adminLn    net.Listener // plaintext, no authentication (loopback-only by default)
 	httpServer *http.Server
 
-	// enforce CORS and prevent DNS rebinding for the unauthenticated admin listener
-	allowedHosts   []string
-	allowedOrigins []string
 
 	mux         *http.ServeMux
 	staticFiles http.Handler
@@ -137,39 +134,31 @@ func (s server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) fillAllowedHosts(listenAddr string) {
-	loopbacks := []string{
-		"localhost",
-		"127.0.0.1",
-		"::1",
-	}
-	allowed := make([]string, 0, len(loopbacks))
-	_, port, _ := net.SplitHostPort(listenAddr)
-	for _, host := range loopbacks {
-		// clients generally omit port if standard, so only expect port if non-standard
-		if port != "80" && port != "443" {
-			host = net.JoinHostPort(host, port)
-		}
-		allowed = append(allowed, host)
-	}
-	s.allowedHosts = allowed
+    loopbacks := s.app.cfg.AllowedHosts
+    allowed := make([]string, 0, len(loopbacks))
+    _, port, _ := net.SplitHostPort(listenAddr)
+    for _, host := range loopbacks {
+        // clients generally omit port if standard, so only expect port if non-standard
+        if port != "80" && port != "443" && host != "*" {
+            host = net.JoinHostPort(host, port)
+        }
+        allowed = append(allowed, host)
+    }
+		s.app.cfg.AllowedHosts = allowed
 }
 
 func (s *server) fillAllowedOrigins(listenAddr string) {
-	loopbacks := []string{
-		"http://localhost",
-		"http://127.0.0.1",
-		"http://[::1]",
-	}
-	allowed := make([]string, 0, len(loopbacks))
-	_, port, _ := net.SplitHostPort(listenAddr)
-	for _, origin := range loopbacks {
-		// clients generally omit port if standard, so only expect port if non-standard
-		if port != "80" && port != "443" {
-			origin += ":" + port
-		}
-		allowed = append(allowed, origin)
-	}
-	s.allowedOrigins = allowed
+    loopbacks := s.app.cfg.AllowedOrigins
+    allowed := make([]string, 0, len(loopbacks))
+    _, port, _ := net.SplitHostPort(listenAddr)
+    for _, origin := range loopbacks {
+        // clients generally omit port if standard, so only expect port if non-standard
+        if port != "80" && port != "443" && origin != "*" {
+            origin += ":" + port
+        }
+        allowed = append(allowed, origin)
+    }
+    s.app.cfg.AllowedOrigins = allowed
 }
 
 // enforceHost returns a handler that wraps next such that
@@ -179,11 +168,16 @@ func (s *server) fillAllowedOrigins(listenAddr string) {
 func (s server) enforceHost(next handler) handler {
 	return handlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		var allowed bool
-		for _, allowedHost := range s.allowedHosts {
+		for _, allowedHost := range s.app.cfg.AllowedHosts {
+			if allowedHost == "*" {
+				allowed = true
+				break
+			}
 			if r.Host == allowedHost {
 				allowed = true
 				break
 			}
+			fmt.Println("allowedHost:", allowedHost, "r.Host:", r.Host)
 		}
 		if !allowed {
 			return Error{
@@ -213,7 +207,11 @@ func (s server) enforceOriginAndMethod(method string, next handler) handler {
 		// only enforce CORS on cross-origin requests (Origin header would be set)
 		if origin != "" {
 			var allowed bool
-			for _, allowedOrigin := range s.allowedOrigins {
+			for _, allowedOrigin := range s.app.cfg.AllowedOrigins {
+				if allowedOrigin == "*" {
+					allowed = true
+					break
+				}
 				if origin == allowedOrigin {
 					allowed = true
 					break

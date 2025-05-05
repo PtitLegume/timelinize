@@ -57,6 +57,10 @@ type Config struct {
 	// program start.
 	Repositories []string `json:"repositories,omitempty"`
 
+	// enforce CORS and prevent DNS rebinding for the unauthenticated admin listener
+	AllowedHosts   []string  `json:"allowed_hosts,omitempty"`
+	AllowedOrigins []string  `json:"allowed_origins,omitempty"`
+
 	// Obfuscation is often used for demonstrating the
 	// software to mask personal data and details.
 	Obfuscation timeline.ObfuscationOptions `json:"obfuscation,omitempty"`
@@ -73,18 +77,42 @@ func (cfg *Config) listenAddr() string {
 	if cfg.Listen != "" {
 		return cfg.Listen
 	}
+	cfg.log.Debug("default admin address", zap.String("address", defaultAdminAddr))
 	return defaultAdminAddr
 }
-
-func (cfg *Config) fillDefaults() {
-	cfg.Lock()
-	defer cfg.Unlock()
-	cfg.Obfuscation.Logger = timeline.Log.Named("faker")
-	if cfg.log == nil {
-		cfg.log = timeline.Log.Named("config").With(zap.Time("loaded", time.Now()))
-	}
+func (cfg *Config) GetAllowedHosts() []string {
+    cfg.RLock()
+    defer cfg.RUnlock()
+    // debug : print current allowed hosts
+    cfg.log.Debug("current allowed hosts", zap.Strings("allowed_hosts", cfg.AllowedHosts))
+    return cfg.AllowedHosts
 }
 
+func (cfg *Config) GetAllowedOrigins() []string {
+    cfg.RLock()
+    defer cfg.RUnlock()
+    // debug : print current allowed origins
+    cfg.log.Debug("current allowed origins", zap.Strings("allowed_origins", cfg.AllowedOrigins))
+    return cfg.AllowedOrigins
+}
+
+func (cfg *Config) FillDefaults() {
+    cfg.Lock()
+    defer cfg.Unlock()
+
+    if cfg.Listen == "" {
+        cfg.Listen = ":12002"
+    }
+    if len(cfg.AllowedHosts) == 0 {
+        cfg.AllowedHosts = DefaultAllowedHosts
+    }
+    if len(cfg.AllowedOrigins) == 0 {
+        cfg.AllowedOrigins = DefaultAllowedOrigins
+    }
+    if cfg.log == nil {
+        cfg.log = timeline.Log.Named("config").With(zap.Time("loaded", time.Now()))
+    }
+}
 // autosave persists the config to disk by obtaining a read lock, so it is safe for concurrent use.
 func (cfg *Config) autosave() error {
 	cfg.RLock()

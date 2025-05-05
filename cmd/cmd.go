@@ -185,18 +185,24 @@ func checkFlagParsing() error {
 }
 
 func loadConfigFile() (*tlzapp.Config, error) {
-	cfgBytes, err := os.ReadFile(configFile)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			if configFile == tlzapp.DefaultConfigFilePath() {
-				err = nil
-			}
-			return new(tlzapp.Config), err
-		}
-	}
-	var cfg *tlzapp.Config
-	err = json.Unmarshal(cfgBytes, &cfg)
-	return cfg, err
+    cfgBytes, err := os.ReadFile(configFile)
+    if err != nil {
+        if errors.Is(err, fs.ErrNotExist) {
+            if configFile == tlzapp.DefaultConfigFilePath() {
+                err = nil
+            }
+            cfg := new(tlzapp.Config)
+            cfg.FillDefaults()
+            return cfg, err
+        }
+        return nil, fmt.Errorf("failed to read config file: %w", err)
+    }
+
+    cfg := new(tlzapp.Config)
+    if err := json.Unmarshal(cfgBytes, cfg); err != nil {
+        return nil, fmt.Errorf("failed to unmarshal config file: %w", err)
+    }
+	return cfg, nil
 }
 
 var configFile = tlzapp.DefaultConfigFilePath()

@@ -70,7 +70,7 @@ type App struct {
 }
 
 func New(ctx context.Context, cfg *Config, embeddedWebsite fs.FS) (*App, error) {
-	cfg.fillDefaults()
+	cfg.FillDefaults()
 
 	var frontend fs.FS
 	if cfg.WebsiteDir == "" {
@@ -508,5 +508,16 @@ const osWindows = "windows"
 
 const defaultAdminAddr = "127.0.0.1:12002"
 
+var DefaultAllowedHosts = []string{
+    "localhost",
+    "127.0.0.1",
+    "::1",
+}
+
+var DefaultAllowedOrigins = []string{
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://[::1]",
+}
 //go:embed python
 var embeddedPython embed.FS
